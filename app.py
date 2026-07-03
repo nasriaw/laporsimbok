@@ -83,7 +83,7 @@ def generate_pdf_report(insiden_list):
     return buffer
 
 with st.sidebar:
-    st.image("assets/logo_stieima.png", use_column_width=True)
+    st.image("assets/logo_stieima.png", use_container_width=True)
     
     # PERBAIKAN NAVIGATION ACTION BUTTON
     # Pastikan state inisialisasi selalu terdeteksi
