@@ -20,8 +20,8 @@ st.set_page_config(
     layout="wide"
 )
 
-BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", os.environ.get("TELEGRAM_BOT_TOKEN", "8912832894:AAHxxO3NW1cS1b6zKsI2NWoixxyMmSxktgc"))
-CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", os.environ.get("TELEGRAM_CHAT_ID", "-5435549253"))
+BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN")
+CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID") or os.environ.get("TELEGRAM_CHAT_ID")
 
 if 'relawan_data' not in st.session_state:
     try: st.session_state.relawan_data = pd.read_csv("data/relawan.csv")
