@@ -83,12 +83,20 @@ def generate_pdf_report(insiden_list):
     return buffer
 
 with st.sidebar:
-    if os.path.exists("assets/logo_stieima.png"):
-        st.image("assets/logo_stieima.png", use_column_width=True)
+    st.image("assets/logo_stieima.png", use_column_width=True)
     
+    # PERBAIKAN NAVIGATION ACTION BUTTON
+    # Pastikan state inisialisasi selalu terdeteksi
     if st.button("✨ Verifikasi Sistem Kampus Aman", use_container_width=True):
         st.session_state.logo_clicks += 1
         
+    # KONDISI PASTI MUNCUL: Cukup jika logo_clicks > 0 langsung tayangkan tombol Kembali ke Halaman Utama
+    if st.session_state.logo_clicks > 0:
+        if st.button("⬅️ Kembali ke Halaman Utama", use_container_width=True):
+            st.session_state.logo_clicks = 0
+            st.session_state.admin_mode = False
+            st.rerun()
+            
     if st.session_state.logo_clicks >= 3:
         st.info("🔓 Fitur Terkunci Terdeteksi.")
         password_input = st.text_input("Masukkan Kode Akses Pusat:", type="password")
@@ -118,28 +126,32 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 if not st.session_state.admin_mode:
-    # Menginisialisasi geolokasi secara tersembunyi di awal halaman utama
     loc_data = streamlit_geolocation()
     
     col_l1, col_l2, col_l3 = st.columns([2, 1, 2])
     with col_l2:
-        if os.path.exists("assets/logo_aplikasi.png"):
-            st.image("assets/logo_aplikasi.png", use_column_width=True)
+        st.image("assets/logo_aplikasi.png", use_column_width=True)
             
     st.markdown("<h2 style='text-align: center; color: #2d3748;'>Sistem Perlindungan Kampus Darurat</h2>", unsafe_allow_html=True)
     
-    # PERBAIKAN 1: Pindahkan notif aktivasi GPS browser dari pojok kiri atas ke bawah judul utama
     if not (loc_data and loc_data.get("latitude") and loc_data.get("longitude")):
         st.warning("⚠️ Mengakses koordinat GPS... Harap izinkan pelacakan lokasi peramban browser Anda agar tombol respons darurat aktif.")
         
     st.write("---")
     
-    with st.expander("📚 Cari Tahu: Informasi & Panduan Mitigasi Krisis Kampus Aman", expanded=False):
-        st.markdown("""
-        ### Apa itu Bullying & Kekerasan Seksual?
-        * **Bullying (Perundungan):** Perilaku agresif yang tidak menyenangkan baik secara verbal, fisik, ataupun sosial di dunia nyata maupun maya.
-        * **Kekerasan Seksual:** Setiap perbuatan merendahkan, menghina, melecehkan, dan/atau menyerang tubuh seseorang karena ketimpangan relasi kuasa.
-        """)
+    # PERBAIKAN TOTAL: Menghapus teks HTML mentah di Pusat Edukasi, dikonversi penuh ke Native Markdown Streamlit agar rapi dan tidak bocor sebagai kode
+    st.markdown("### 📚 Pusat Edukasi & Panduan Mitigasi Krisis Kampus Aman")
+    st.write("Sistem **Lapor Simbok** dikembangkan secara khusus oleh Tim Pengabdian Masyarakat STIEIMA sebagai instrumen perlindungan preventif dan represif bagi seluruh sivitas akademika dari segala bentuk tindakan intimidasi maupun kekerasan.")
+    
+    st.markdown("#### 1. Batasan & Klasifikasi Tindakan Krisis")
+    st.markdown("* **Bullying (Perundungan):** Segala bentuk intimidasi, pemaksaan, kekerasan psikologis atau verbal, serta pengucilan terencana yang terjadi di lingkungan fisik kampus maupun ruang siber (*cyberbullying*) yang merusak integritas mental sivitas akademika.")
+    st.markdown("* **Kekerasan Seksual:** Setiap perbuatan fisik maupun non-fisik yang merendahkan, menghina, melecehkan, dan/atau menyerang tubuh atau fungsi reproduksi seseorang atas dasar ketimpangan relasi kuasa atau gender.")
+    
+    st.markdown("#### 2. Protokol Tiga Langkah Mitigasi Mandiri")
+    st.markdown("1. **Amankan Diri Fisik:** Segera menjauh dari area konflik menuju koridor yang terpantau kamera CCTV, area ramai perkuliahan, atau langsung ke Posko Satgas Utama.")
+    st.markdown("2. **Aktifkan Sinyal Lapor Simbok:** Pastikan GPS peramban aktif dan tekan tombol darurat merah **\"BANTU AKU....\"** di bawah untuk menyiarkan titik koordinat Bapak/Ibu langsung ke pangkalan data relawan.")
+    st.markdown("3. **Preservasi Alat Bukti:** Amankan tangkapan layar (*screenshot*), rekaman audio, atau dokumentasi visual lainnya guna memperlancar proses investigasi dan penegakan regulasi hukum kampus.")
+    st.write("---")
     
     c_b1, c_b2, c_b3 = st.columns([1, 2, 1])
     with c_b2:
@@ -170,16 +182,10 @@ if not st.session_state.admin_mode:
                     nama_relawan = "Pusat Satgas STIEIMA"
                     posisi_relawan = "Posko Utama Pusat Komando"
                 
-                # Kotak Informasi Penolong
                 st.error(f"⚠️ **INFORMASI PENOLONG:** Relawan **{nama_relawan}** sedang meluncur dari posisi **{posisi_relawan}** menuju tempat Anda.")
                 
-                # PERBAIKAN 2: Pindahkan tombol Hubungi Satgas Telegram ke bawah kotak INFORMASI PENOLONG (untuk insiden terlambat)
                 st.markdown(
-                    "<div style='text-align: center; margin-top: 10px; margin-bottom: 15px;'>",
-                    unsafe_allow_html=True
-                )
-                st.markdown(
-                    "<div style='text-align: center;'>"
+                    "<div style='text-align: center; margin-top: 15px; margin-bottom: 20px;'>"
                     "<a href='https://t.me/Lapor_Simbok_STIEIMA' target='_blank' style='text-decoration: none; color: #ffffff; background-color: #0088cc; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px;'>"
                     "💬 Hubungi Satgas (Telegram Group)"
                     "</a>"
@@ -195,9 +201,11 @@ if not st.session_state.admin_mode:
                 for _, row in st.session_state.relawan_data.iterrows():
                     folium.Marker([row["Latitude"], row["Longitude"]], popup=f"Relawan: {row['Nama']}", icon=folium.Icon(color='green', icon='user')).add_to(m_korban)
                 folium_static(m_korban)
+        else:
+            st.warning("Mengakses satelit GPS... Harap aktifkan/izinkan pelacakan lokasi peramban browser Anda.")
 
 else:
-    st_autorefresh(interval=10000, key="admin_sync_v8")
+    st_autorefresh(interval=10000, key="admin_sync_v12")
     st.markdown("<h1>💻 Control Room & Dispatcher Admin</h1>", unsafe_allow_html=True)
     
     if admin_nav == "📋 Monitor Insiden Aktif":
@@ -215,7 +223,7 @@ else:
 
     elif admin_nav == "📊 Database Relawan":
         st.subheader("Tambah Anggota Relawan Baru")
-        with st.form("add_relawan_v8"):
+        with st.form("add_relawan_v12"):
             nama = st.text_input("Nama Relawan")
             hp = st.text_input("No Handphone")
             lat_sim = st.number_input("Simulasi Latitude", value=-7.9715, format="%.6f")
