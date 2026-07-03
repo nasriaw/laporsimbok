@@ -1,8 +1,0 @@
-streamlit
-streamlit-geolocation
-streamlit-folium
-streamlit-autorefresh
-folium
-pandas
-requests
-reportlab
