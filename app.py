@@ -34,6 +34,7 @@ if 'panic_triggered' not in st.session_state: st.session_state.panic_triggered =
 
 BASE_LAT, BASE_LON = -7.970222, 112.607498
 
+
 def hitung_jarak(lat1, lon1, lat2, lon2):
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
@@ -41,6 +42,7 @@ def hitung_jarak(lat1, lon1, lat2, lon2):
     a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+
 
 def send_telegram_alert(lat, lon):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -56,6 +58,7 @@ def send_telegram_alert(lat, lon):
         resp = requests.post(url, json={"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"})
         return resp.status_code == 200
     except: return False
+
 
 def generate_pdf_report(insiden_list):
     buffer = BytesIO()
@@ -82,8 +85,29 @@ def generate_pdf_report(insiden_list):
     buffer.seek(0)
     return buffer
 
+
+# Helper: safe image loader to avoid Streamlit crashing when an image file is missing or unreadable
+def safe_st_image(path_or_data, **kwargs):
+    """Try to load an image from disk (preferred) or pass through raw data.
+    If the file is missing or unreadable, fail gracefully with a message instead of raising.
+    """
+    try:
+        # If path_or_data looks like a path to a file on disk, prefer reading bytes and passing them to st.image
+        if isinstance(path_or_data, str) and os.path.exists(path_or_data):
+            with open(path_or_data, 'rb') as f:
+                data = f.read()
+            st.image(data, **kwargs)
+        else:
+            # If the provided value isn't a file path or doesn't exist, attempt to pass it directly
+            st.image(path_or_data, **kwargs)
+    except Exception as e:
+        # Don't raise here; show a user-friendly warning so the app doesn't crash due to missing assets
+        st.warning(f"Gagal memuat gambar '{path_or_data}'. Harap pastikan file ada di folder 'assets' atau gunakan URL yang dapat diakses. (Error: {e})")
+
+
 with st.sidebar:
-    st.image("assets/logo_stieima.png", use_container_width=True)
+    # Use safe image loader for sidebar logo to avoid MediaFileStorageError when file missing
+    safe_st_image("assets/logo_stieima.png", use_container_width=True)
     
     # PERBAIKAN NAVIGATION ACTION BUTTON
     # Pastikan state inisialisasi selalu terdeteksi
@@ -130,27 +154,28 @@ if not st.session_state.admin_mode:
     
     col_l1, col_l2, col_l3 = st.columns([2, 1, 2])
     with col_l2:
-        st.image("assets/logo_aplikasi.png", use_column_width=True)
+        # Use safe image loader for main logo as well
+        safe_st_image("assets/logo_aplikasi.png", use_column_width=True)
             
     st.markdown("<h2 style='text-align: center; color: #2d3748;'>Sistem Perlindungan Kampus Darurat</h2>", unsafe_allow_html=True)
     
-    if not (loc_data and loc_data.get("latitude") and loc_data.get("longitude")):
+    if not (loc_data and loc_data.get("latitude") and loc_data.get("longitude") ):
         st.warning("⚠️ Mengakses koordinat GPS... Harap izinkan pelacakan lokasi peramban browser Anda agar tombol respons darurat aktif.")
         
     st.write("---")
     
     # PERBAIKAN TOTAL: Menghapus teks HTML mentah di Pusat Edukasi, dikonversi penuh ke Native Markdown Streamlit agar rapi dan tidak bocor sebagai kode
     st.markdown("### 📚 Pusat Edukasi & Panduan Mitigasi Krisis Kampus Aman")
-    st.write("Sistem **Lapor Simbok** dikembangkan secara khusus oleh Tim Pengabdian Masyarakat STIEIMA sebagai instrumen perlindungan preventif dan represif bagi seluruh sivitas akademika dari segala bentuk tindakan intimidasi maupun kekerasan.")
+    st.write("Sistem **Lapor Simbok** dikembangkan secara khusus oleh Tim Pengabdian Masyarakat STIEIMA sebagai instrumen perlindungan preventif dan represif bagi seluruh sivitas akademika dari segala[...]")
     
     st.markdown("#### 1. Batasan & Klasifikasi Tindakan Krisis")
-    st.markdown("* **Bullying (Perundungan):** Segala bentuk intimidasi, pemaksaan, kekerasan psikologis atau verbal, serta pengucilan terencana yang terjadi di lingkungan fisik kampus maupun ruang siber (*cyberbullying*) yang merusak integritas mental sivitas akademika.")
-    st.markdown("* **Kekerasan Seksual:** Setiap perbuatan fisik maupun non-fisik yang merendahkan, menghina, melecehkan, dan/atau menyerang tubuh atau fungsi reproduksi seseorang atas dasar ketimpangan relasi kuasa atau gender.")
+    st.markdown("* **Bullying (Perundungan):** Segala bentuk intimidasi, pemaksaan, kekerasan psikologis atau verbal, serta pengucilan terencana yang terjadi di lingkungan fisik kampus maupun ruang si[...]")
+    st.markdown("* **Kekerasan Seksual:** Setiap perbuatan fisik maupun non-fisik yang merendahkan, menghina, melecehkan, dan/atau menyerang tubuh atau fungsi reproduksi seseorang atas dasar ketimpang[...]")
     
     st.markdown("#### 2. Protokol Tiga Langkah Mitigasi Mandiri")
     st.markdown("1. **Amankan Diri Fisik:** Segera menjauh dari area konflik menuju koridor yang terpantau kamera CCTV, area ramai perkuliahan, atau langsung ke Posko Satgas Utama.")
-    st.markdown("2. **Aktifkan Sinyal Lapor Simbok:** Pastikan GPS peramban aktif dan tekan tombol darurat merah **\"BANTU AKU....\"** di bawah untuk menyiarkan titik koordinat Bapak/Ibu langsung ke pangkalan data relawan.")
-    st.markdown("3. **Preservasi Alat Bukti:** Amankan tangkapan layar (*screenshot*), rekaman audio, atau dokumentasi visual lainnya guna memperlancar proses investigasi dan penegakan regulasi hukum kampus.")
+    st.markdown("2. **Aktifkan Sinyal Lapor Simbok:** Pastikan GPS peramban aktif dan tekan tombol darurat merah **\"BANTU AKU....\"** di bawah untuk menyiarkan titik koordinat Bapak/Ibu langsung ke p[...]")
+    st.markdown("3. **Preservasi Alat Bukti:** Amankan tangkapan layar (*screenshot*), rekaman audio, atau dokumentasi visual lainnya guna memperlancar proses investigasi dan penegakan regulasi hukum [...]")
     st.write("---")
     
     c_b1, c_b2, c_b3 = st.columns([1, 2, 1])
@@ -186,7 +211,7 @@ if not st.session_state.admin_mode:
                 
                 st.markdown(
                     "<div style='text-align: center; margin-top: 15px; margin-bottom: 20px;'>"
-                    "<a href='https://t.me/Lapor_Simbok_STIEIMA' target='_blank' style='text-decoration: none; color: #ffffff; background-color: #0088cc; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px;'>"
+                    "<a href='https://t.me/Lapor_Simbok_STIEIMA' target='_blank' style='text-decoration: none; color: #ffffff; background-color: #0088cc; padding: 8px 16px; border-radius: 20px; font-w[...]"
                     "💬 Hubungi Satgas (Telegram Group)"
                     "</a>"
                     "<br><small style='color: #718096;'>*Klik di sini untuk mengirim pesan langsung jika respon tim di lapangan lambat / terlambat datang</small>"
