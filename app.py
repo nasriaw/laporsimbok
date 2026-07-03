@@ -157,7 +157,7 @@ if not st.session_state.admin_mode:
         # Use safe image loader for main logo as well
         safe_st_image("assets/logo_aplikasi.png", use_column_width=True)
             
-    st.markdown("<h2 style='text-align: center; color: #2d3748;'>LAPOR SIMBOK, Sistem Perlindungan Kampus Darurat jika terjadi kekerasan seksual & bullying</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #2d3748;'>LAPOR SIMBOK, Sistem Perlindungan Kampus Darurat jika terjadi kekerasan seksual & bullying; tekan ijin aktivasi GPS anda</h2>", unsafe_allow_html=True)
     
     if not (loc_data and loc_data.get("latitude") and loc_data.get("longitude") ):
         st.warning("⚠️ Mengakses koordinat GPS... Harap izinkan pelacakan lokasi peramban browser Anda agar tombol respons darurat aktif.")
