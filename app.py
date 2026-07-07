@@ -20,7 +20,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Pengambilan kredensial rahasia dari `.streamlit/secrets.toml`
 BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID") or os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -32,10 +31,12 @@ if 'laporan_insiden' not in st.session_state: st.session_state.laporan_insiden =
 if 'logo_clicks' not in st.session_state: st.session_state.logo_clicks = 0
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
 if 'panic_triggered' not in st.session_state: st.session_state.panic_triggered = False
+# store last triggered coordinates so post-trigger UI can access them reliably
 if 'last_lat' not in st.session_state: st.session_state.last_lat = None
 if 'last_lon' not in st.session_state: st.session_state.last_lon = None
 
 BASE_LAT, BASE_LON = -7.970222, 112.607498
+
 
 def hitung_jarak(lat1, lon1, lat2, lon2):
     R = 6371.0
@@ -45,27 +46,22 @@ def hitung_jarak(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+
 def send_telegram_alert(lat, lon):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Gunakan format URL Google Maps standar yang bersih tanpa teks tambahan di dalam kurung Markdown
-    maps_url = f"https://www.google.com/maps?q={lat},{lon}"
-    
     pesan = (
         f"🚨 *ALERT DARURAT: LAPOR SIMBOK* 🚨\n\n"
         f"📅 *Waktu Kejadian:* {timestamp}\n"
         f"📍 *Lokasi Korban:* {lat}, {lon}\n"
-        f"🔗 [Buka Peta Lokasi]({maps_url})\n\n"
+        f"🔗 [Buka Peta Lokasi](https://maps.google.com/?q={lat},{lon})\n\n"
         f"Status: Mohon Satgas terdekat segera merespons ke lokasi!"
     )
-    
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     try:
-        # Menggunakan format "Markdown" standar (bukan MarkdownV2) agar lebih toleran terhadap tanda baca
-        resp = requests.post(url, json={"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"}, timeout=10)
+        resp = requests.post(url, json={"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"})
         return resp.status_code == 200
-    except: 
-        return False
+    except: return False
+
 
 def generate_pdf_report(insiden_list):
     buffer = BytesIO()
@@ -92,23 +88,36 @@ def generate_pdf_report(insiden_list):
     buffer.seek(0)
     return buffer
 
+
+# Helper: safe image loader to avoid Streamlit crashing when an image file is missing or unreadable
 def safe_st_image(path_or_data, **kwargs):
+    """Try to load an image from disk (preferred) or pass through raw data.
+    If the file is missing or unreadable, fail gracefully with a message instead of raising.
+    """
     try:
+        # If path_or_data looks like a path to a file on disk, prefer reading bytes and passing them to st.image
         if isinstance(path_or_data, str) and os.path.exists(path_or_data):
             with open(path_or_data, 'rb') as f:
                 data = f.read()
             st.image(data, **kwargs)
         else:
+            # If the provided value isn't a file path or doesn't exist, attempt to pass it directly
             st.image(path_or_data, **kwargs)
     except Exception as e:
-        st.warning(f"Gagal memuat gambar. (Error: {e})")
+        # Don't raise here; show a user-friendly warning so the app doesn't crash due to missing assets
+        st.warning(f"Gagal memuat gambar '{path_or_data}'. Harap pastikan file ada di folder 'assets' atau gunakan URL yang dapat diakses. (Error: {e})")
+
 
 with st.sidebar:
-    safe_st_image("assets/logo_stieima.png", use_column_width=True)
+    # Use safe image loader for sidebar logo to avoid MediaFileStorageError when file missing
+    safe_st_image("assets/logo_stieima.png", use_container_width=True)
     
+    # PERBAIKAN NAVIGATION ACTION BUTTON
+    # Pastikan state inisialisasi selalu terdeteksi
     if st.button("✨ Verifikasi Sistem Kampus Aman", use_container_width=True):
         st.session_state.logo_clicks += 1
         
+    # KONDISI PASTI MUNCUL: Cukup jika logo_clicks > 0 langsung tayangkan tombol Kembali ke Halaman Utama
     if st.session_state.logo_clicks > 0:
         if st.button("⬅️ Kembali ke Halaman Utama", use_container_width=True):
             st.session_state.logo_clicks = 0
@@ -148,28 +157,31 @@ if not st.session_state.admin_mode:
     
     col_l1, col_l2, col_l3 = st.columns([2, 1, 2])
     with col_l2:
+        # Use safe image loader for main logo as well
         safe_st_image("assets/logo_aplikasi.png", use_column_width=True)
             
-    st.markdown("<h2 style='text-align: center; color: #2d3748;'>LAPOR SIMBOK, Sistem Perlindungan Kampus Darurat jika terjadi kekerasan seksual & bullying; tekan ijin aktivasi GPS anda di ikon atas kiri, lalu scrol kebawah klik BANTU AKU</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #2d3748;'>LAPOR SIMBOK, Sistem Perlindungan Kampus Darurat jika terjadi kekerasan seksual & bullying; tekan ijin aktivasi GPS anda di ikon  atas kiri, lalu scrol kebawah klik BANTU AKU</h2>", unsafe_allow_html=True)
     
-    if not (loc_data and loc_data.get("latitude") and loc_data.get("longitude")):
+    if not (loc_data and loc_data.get("latitude") and loc_data.get("longitude") ):
         st.warning("⚠️ Mengakses koordinat GPS... Harap izinkan pelacakan lokasi peramban browser Anda agar tombol respons darurat aktif.")
         
     st.write("---")
     
+    # PERBAIKAN TOTAL: Menghapus teks HTML mentah di Pusat Edukasi, dikonversi penuh ke Native Markdown Streamlit agar rapi dan tidak bocor sebagai kode
     st.markdown("### 📚 Pusat Edukasi & Panduan Mitigasi Krisis Kampus Aman")
-    st.write("Sistem **Lapor Simbok** dikembangkan secara khusus oleh Tim Pengabdian Masyarakat STIEIMA sebagai instrumen perlindungan preventif dan represif bagi seluruh sivitas akademika dari segala tindakan kekerasan.")
+    st.write("Sistem **Lapor Simbok** dikembangkan secara khusus oleh Tim Pengabdian Masyarakat STIEIMA sebagai instrumen perlindungan preventif dan represif bagi seluruh sivitas akademika dari segala[...]")
     
     st.markdown("#### 1. Batasan & Klasifikasi Tindakan Krisis")
-    st.markdown("* **Bullying (Perundungan):** Segala bentuk kejahatan psikologis, verbal, fisik, atau pengucilan terencana di lingkungan kampus maupun ruang siber.")
-    st.markdown("* **Kekerasan Seksual:** Setiap perbuatan yang merendahkan, menghina, melecehkan, dan/atau menyerang tubuh seseorang atas dasar ketimpangan relasi kuasa.")
+    st.markdown("* **Bullying (Perundungan):** Segala bentuk intimidasi, pemaksaan, kekerasan psikologis atau verbal, serta pengucilan terencana yang terjadi di lingkungan fisik kampus maupun ruang si[...]")
+    st.markdown("* **Kekerasan Seksual:** Setiap perbuatan fisik maupun non-fisik yang merendahkan, menghina, melecehkan, dan/atau menyerang tubuh atau fungsi reproduksi seseorang atas dasar ketimpang[...]")
     
     st.markdown("#### 2. Protokol Tiga Langkah Mitigasi Mandiri")
-    st.markdown("1. **Amankan Diri Fisik:** Segera menjauh dari area konflik menuju koridor yang ramai atau Posko Satgas Utama.")
-    st.markdown("2. **Aktifkan Sinyal Lapor Simbok:** Pastikan GPS peramban aktif dan tekan tombol darurat merah **\"BANTU AKU....\"**.")
-    st.markdown("3. **Preservasi Alat Bukti:** Amankan tangkapan layar, rekaman suara, atau saksi mata visual.")
+    st.markdown("1. **Amankan Diri Fisik:** Segera menjauh dari area konflik menuju koridor yang terpantau kamera CCTV, area ramai perkuliahan, atau langsung ke Posko Satgas Utama.")
+    st.markdown("2. **Aktifkan Sinyal Lapor Simbok:** Pastikan GPS peramban aktif dan tekan tombol darurat merah **\"BANTU AKU....\"** di bawah untuk menyiarkan titik koordinat Bapak/Ibu langsung ke p[...]")
+    st.markdown("3. **Preservasi Alat Bukti:** Amankan tangkapan layar (*screenshot*), rekaman audio, atau dokumentasi visual lainnya guna memperlancar proses investigasi dan penegakan regulasi hukum [...]")
     st.write("---")
 
+    # --- TOMBOL DARURAT: ditempatkan langsung sesudah Pusat Edukasi ---
     c_b1, c_b2, c_b3 = st.columns([1, 2, 1])
     with c_b2:
         if loc_data and loc_data.get("latitude") and loc_data.get("longitude"):
@@ -178,19 +190,14 @@ if not st.session_state.admin_mode:
             
             st.markdown("<p style='text-align: center; color: green; font-weight: bold;'>🟢 GPS Siap & Lokasi Terkunci Otomatis</p>", unsafe_allow_html=True)
             
+            # gunakan key agar tidak bentrok jika komponen dirender beberapa kali
             if st.button("🚨 BANTU AKU.... ", use_container_width=True, type="primary", key="panic_button"):
-                status_kirim = send_telegram_alert(user_lat, user_lon)
-                
-                # Tambahan validasi transparan untuk memantau status pengiriman API Telegram
-                if status_kirim:
-                    st.toast("✅ Sinyal darurat berhasil disiarkan ke Grup Satgas!", icon="🚀")
-                else:
-                    st.toast("❌ Gagal mengirim pesan ke Telegram. Periksa koneksi atau Secrets Token Bot Anda.", icon="🚨")
-                    
+                send_telegram_alert(user_lat, user_lon)
                 st.session_state.laporan_insiden.append({
                     "Waktu": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "Lat": user_lat, "Lon": user_lon, "Status": "Relawan Meluncur"
                 })
+                # simpan koordinat terakhir yang memicu panic agar UI pasca-trigger konsisten
                 st.session_state.last_lat = user_lat
                 st.session_state.last_lon = user_lon
                 st.session_state.panic_triggered = True
@@ -198,10 +205,14 @@ if not st.session_state.admin_mode:
         else:
             st.warning("Mengakses satelit GPS... Harap aktifkan/izinkan pelacakan lokasi peramban browser Anda.")
 
+    # --- TAMPILAN PASCA-TRIGGER: informasi relawan & peta ---
     if st.session_state.panic_triggered:
+        # ambil koordinat yang tersimpan saat tombol ditekan
         user_lat = st.session_state.last_lat
         user_lon = st.session_state.last_lon
-        if user_lat is not None and user_lon is not None:
+        if user_lat is None or user_lon is None:
+            st.error("Koordinat terakhir tidak tersedia. Pastikan GPS aktif dan coba lagi.")
+        else:
             relawan_aktif = st.session_state.relawan_data[st.session_state.relawan_data["Status"] == "Aktif"]
             if not relawan_aktif.empty:
                 relawan_aktif = relawan_aktif.copy()
@@ -217,12 +228,12 @@ if not st.session_state.admin_mode:
             st.error(f"⚠️ **INFORMASI PENOLONG:** Relawan **{nama_relawan}** sedang meluncur dari posisi **{posisi_relawan}** menuju tempat Anda.")
             
             st.markdown(
-                f"<div style='text-align: center; margin-top: 15px; margin-bottom: 20px;'>"
-                f"<a href='https://t.me/Lapor_Simbok_STIEIMA' target='_blank' style='text-decoration: none; color: #ffffff; background-color: #0088cc; padding: 8px 16px; border-radius: 20px; font-weight: bold;'>"
-                f"💬 Hubungi Satgas (Telegram Group)"
-                f"</a>"
-                f"<br><small style='color: #718096;'>*Klik di sini untuk mengirim pesan langsung jika respon tim di lapangan lambat / terlambat datang</small>"
-                f"</div>", 
+                "<div style='text-align: center; margin-top: 15px; margin-bottom: 20px;'>"
+                "<a href='https://t.me/Lapor_Simbok_STIEIMA' target='_blank' style='text-decoration: none; color: #ffffff; background-color: #0088cc; padding: 8px 16px; border-radius: 20px; font-weight: bold;'>"
+                "💬 Hubungi Satgas (Telegram Group)"
+                "</a>"
+                "<br><small style='color: #718096;'>*Klik di sini untuk mengirim pesan langsung jika respon tim di lapangan lambat / terlambat datang</small>"
+                "</div>", 
                 unsafe_allow_html=True
             )
             
@@ -232,6 +243,8 @@ if not st.session_state.admin_mode:
             folium.Marker([BASE_LAT, BASE_LON], popup="Home Base STIEIMA", icon=folium.Icon(color='blue', icon='home')).add_to(m_korban)
             for _, row in st.session_state.relawan_data.iterrows():
                 folium.Marker([row["Latitude"], row["Longitude"]], popup=f"Relawan: {row['Nama']}", icon=folium.Icon(color='green', icon='user')).add_to(m_korban)
+            for ins in st.session_state.laporan_insiden:
+                folium.Marker([ins["Lat"], ins["Lon"]], popup=f"🚨 LOKASI KORBAN ({ins['Waktu']})", icon=folium.Icon(color='red', icon='exclamation-sign')).add_to(m_korban)
             folium_static(m_korban)
 
 else:
