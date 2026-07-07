@@ -37,6 +37,13 @@ if 'last_lon' not in st.session_state: st.session_state.last_lon = None
 
 BASE_LAT, BASE_LON = -7.970222, 112.607498
 
+# --- FUNGSI UTAMA UNTUK MENGAMBIL WAKTU WIB (GMT+7) SECARA AKURAT ---
+def ambil_waktu_wib():
+    # Menambahkan offset 7 jam secara manual dari waktu UTC server cloud
+    waktu_utc = datetime.datetime.utcnow()
+    waktu_wib = waktu_utc + datetime.timedelta(hours=7)
+    return waktu_wib
+
 def hitung_jarak(lat1, lon1, lat2, lon2):
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
@@ -46,15 +53,13 @@ def hitung_jarak(lat1, lon1, lat2, lon2):
     return R * c
 
 def send_telegram_alert(lat, lon):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # PERBAIKAN UTAMA: Gunakan URL resmi Google Maps standar internasional (HTTPS)
-    # Ini dijamin lolos filter keamanan aplikasi Telegram dan langsung interaktif bisa diklik
+    # Menggunakan fungsi ambil_waktu_wib() agar waktu di pesan Telegram presisi jam WIB
+    timestamp = ambil_waktu_wib().strftime("%Y-%m-%d %H:%M:%S")
     maps_url = f"https://www.google.com/maps?q={lat},{lon}"
     
     pesan = (
         "🚨 *ALERT DARURAT: LAPOR SIMBOK* 🚨\n\n"
-        f"📅 *Waktu Kejadian:* {timestamp}\n"
+        f"📅 *Waktu Kejadian:* {timestamp} WIB\n"
         f"📍 *Lokasi Korban:* {lat}, {lon}\n"
         f"🔗 [Buka Peta Lokasi]({maps_url})\n\n"
         "Status: Mohon Satgas terdekat segera merespons ke lokasi!"
@@ -62,12 +67,7 @@ def send_telegram_alert(lat, lon):
     
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     try:
-        # Menggunakan mode Markdown standar yang stabil
-        resp = requests.post(
-            url, 
-            json={"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"}, 
-            timeout=10
-        )
+        resp = requests.post(url, json={"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"}, timeout=10)
         return resp.status_code == 200
     except: 
         return False
@@ -79,7 +79,9 @@ def generate_pdf_report(insiden_list):
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a365d'), spaceAfter=12)
     story.append(Paragraph("LAPORAN REKAPITULASI INSIDEN - LAPOR SIMBOK", title_style))
-    story.append(Paragraph(f"Dicetak Otomatis pada: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+    # Sinkronisasi cetak PDF ke waktu WIB
+    waktu_cetak = ambil_waktu_wib().strftime("%Y-%m-%d %H:%M:%S")
+    story.append(Paragraph(f"Dicetak Otomatis pada: {waktu_cetak} WIB", styles['Normal']))
     story.append(Spacer(1, 15))
     data = [["Waktu Kejadian", "Latitude", "Longitude", "Status Tindakan"]]
     for ins in insiden_list: data.append([ins['Waktu'], str(ins['Lat']), str(ins['Lon']), ins['Status']])
@@ -172,7 +174,7 @@ if not st.session_state.admin_mode:
     st.markdown("#### 2. Protokol Tiga Langkah Mitigasi Mandiri")
     st.markdown("1. **Amankan Diri Fisik:** Segera menjauh dari area konflik menuju koridor yang ramai atau Posko Satgas Utama.")
     st.markdown("2. **Aktifkan Sinyal Lapor Simbok:** Pastikan GPS peramban aktif dan tekan tombol darurat merah **\"BANTU AKU....\"**.")
-    st.markdown("3. **Preservasi Alat Bukti:** Amankan tangkapan layar, rekaman suara, atau saksi mata visual.")
+    st.markdown("3. **Preservasi Alat Bukti:** Amankan tangkapan layar, rekaman audio, atau dokumentasi visual.")
     st.write("---")
 
     c_b1, c_b2, c_b3 = st.columns([1, 2, 1])
@@ -184,16 +186,11 @@ if not st.session_state.admin_mode:
             st.markdown("<p style='text-align: center; color: green; font-weight: bold;'>🟢 GPS Siap & Lokasi Terkunci Otomatis</p>", unsafe_allow_html=True)
             
             if st.button("🚨 BANTU AKU.... ", use_container_width=True, type="primary", key="panic_button"):
-                status_kirim = send_telegram_alert(user_lat, user_lon)
+                send_telegram_alert(user_lat, user_lon)
                 
-                # Tambahan validasi transparan untuk memantau status pengiriman API Telegram
-                if status_kirim:
-                    st.toast("✅ Sinyal darurat berhasil disiarkan ke Grup Satgas!", icon="🚀")
-                else:
-                    st.toast("❌ Gagal mengirim pesan ke Telegram. Periksa koneksi atau Secrets Token Bot Anda.", icon="🚨")
-                    
+                # Menggunakan fungsi waktu WIB lokal untuk pencatatan baris tabel riwayat database insiden
                 st.session_state.laporan_insiden.append({
-                    "Waktu": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "Waktu": ambil_waktu_wib().strftime("%Y-%m-%d %H:%M:%S") + " WIB",
                     "Lat": user_lat, "Lon": user_lon, "Status": "Relawan Meluncur"
                 })
                 st.session_state.last_lat = user_lat
@@ -223,7 +220,7 @@ if not st.session_state.admin_mode:
             
             st.markdown(
                 f"<div style='text-align: center; margin-top: 15px; margin-bottom: 20px;'>"
-                f"<a href='https://t.me/Lapor_Simbok_STIEIMA' target='_blank' style='text-decoration: none; color: #ffffff; background-color: #0088cc; padding: 8px 16px; border-radius: 20px; font-weight: bold;'>"
+                f"<a href='https://t.me/Lapor_Simbok_STIEIMA' target='_blank' style='text-decoration: none; color: #ffffff; background-color: #0088cc; padding: 8px 16px; border-radius: 20px; font-weight: bold;'>\n"
                 f"💬 Hubungi Satgas (Telegram Group)"
                 f"</a>"
                 f"<br><small style='color: #718096;'>*Klik di sini untuk mengirim pesan langsung jika respon tim di lapangan lambat / terlambat datang</small>"
