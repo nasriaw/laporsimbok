@@ -47,16 +47,21 @@ def hitung_jarak(lat1, lon1, lat2, lon2):
 
 def send_telegram_alert(lat, lon):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # PERBAIKAN: Mengembalikan karakter \\n menjadi \n murni agar API Telegram tidak menolak parsing string markdown
+    
+    # Gunakan format URL Google Maps standar yang bersih tanpa teks tambahan di dalam kurung Markdown
+    maps_url = f"https://www.google.com/maps?q={lat},{lon}"
+    
     pesan = (
         f"🚨 *ALERT DARURAT: LAPOR SIMBOK* 🚨\n\n"
         f"📅 *Waktu Kejadian:* {timestamp}\n"
         f"📍 *Lokasi Korban:* {lat}, {lon}\n"
-        f"🔗 [Buka Peta Lokasi](https://www.google.com/maps?q={lat},{lon})\n\n"
+        f"🔗 [Buka Peta Lokasi]({maps_url})\n\n"
         f"Status: Mohon Satgas terdekat segera merespons ke lokasi!"
     )
+    
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     try:
+        # Menggunakan format "Markdown" standar (bukan MarkdownV2) agar lebih toleran terhadap tanda baca
         resp = requests.post(url, json={"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"}, timeout=10)
         return resp.status_code == 200
     except: 
